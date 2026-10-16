@@ -1,7 +1,9 @@
 
 
 import random
+import sqlite3
 import tkinter as tk
+from pathlib import Path
 
 
 WIDTH, HEIGHT = 480, 640
@@ -14,6 +16,7 @@ PIPE_SPEED = 3.2
 PIPE_WIDTH = 72
 PIPE_GAP = 172
 PIPE_INTERVAL = 92
+DATABASE_PATH = Path(__file__).with_name("flappy_bird.db")
 
 
 class FlappyBird:
@@ -28,9 +31,27 @@ class FlappyBird:
         root.bind("<Up>", self.flap)
         root.bind("<r>", self.restart)
         root.bind("<R>", self.restart)
-        self.best = 0
+        self.best = self.load_best_score()
         self.reset()
         self.draw()
+
+    @staticmethod
+    def load_best_score() -> int:
+        """Cria o banco, caso necessário, e lê o recorde salvo."""
+        with sqlite3.connect(DATABASE_PATH) as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS record (id INTEGER PRIMARY KEY CHECK (id = 1), score INTEGER NOT NULL)"
+            )
+            row = connection.execute("SELECT score FROM record WHERE id = 1").fetchone()
+            return int(row[0]) if row else 0
+
+    def save_best_score(self) -> None:
+        with sqlite3.connect(DATABASE_PATH) as connection:
+            connection.execute(
+                "INSERT INTO record (id, score) VALUES (1, ?) "
+                "ON CONFLICT(id) DO UPDATE SET score = excluded.score",
+                (self.best,),
+            )
 
     def reset(self) -> None:
         self.bird_x = 118
@@ -71,7 +92,9 @@ class FlappyBird:
             if not pipe["scored"] and float(pipe["x"]) + PIPE_WIDTH < self.bird_x:
                 pipe["scored"] = True
                 self.score += 1
-                self.best = max(self.best, self.score)
+                if self.score > self.best:
+                    self.best = self.score
+                    self.save_best_score()
         self.pipes = [p for p in self.pipes if float(p["x"]) + PIPE_WIDTH > -5]
 
         radius = 15
@@ -131,8 +154,8 @@ class FlappyBird:
         for pipe in self.pipes:
             self.draw_pipe(float(pipe["x"]), float(pipe["top"]))
         self.draw_bird()
-        self.canvas.create_text(WIDTH / 2, 42, text=str(self.score), font=("Arial", 34, "bold"), fill="white", tags="score")
         self.canvas.create_text(WIDTH / 2, 43, text=str(self.score), font=("Arial", 32, "bold"), fill="white")
+        self.canvas.create_text(WIDTH - 72, 25, text=f"RECORDE {self.best}", font=("Arial", 10, "bold"), fill="#fff8df")
         if self.state == "ready":
             self.draw_card("FLAPPY BIRD", "Pressione ESPAÇO, ↑ ou clique para voar", "Desvie dos canos e marque pontos!")
         elif self.state == "over":
