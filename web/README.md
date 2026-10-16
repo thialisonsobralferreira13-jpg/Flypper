@@ -1,6 +1,6 @@
 # Versão para navegador
 
-O jogo continua escrito em Python (`main.py`). Pygbag empacota a versão Pygame para WebAssembly, permitindo executá-la no navegador. A versão desktop com Tkinter continua na raiz do projeto.
+O jogo continua escrito em Python (`main.py`). Pygbag empacota a versão Pygame para WebAssembly, permitindo executá-la no navegador. As imagens ficam em `web/assets/`: personagem e conectores RJ45. A versão desktop com Tkinter continua na raiz do projeto.
 
 ## Preparar
 

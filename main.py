@@ -31,6 +31,16 @@ class FlappyBird:
         root.bind("<Up>", self.flap)
         root.bind("<r>", self.restart)
         root.bind("<R>", self.restart)
+        self.bird_photo = tk.PhotoImage(file=Path(__file__).with_name("assets") / "player.png")
+        scale = max(1, (self.bird_photo.width() + 95) // 96)
+        self.bird_sprite = self.bird_photo.subsample(scale, scale)
+        cable_path = Path(__file__).with_name("assets")
+        cable_scale = 7
+        cable_top = tk.PhotoImage(file=cable_path / "rj45.png")
+        cable_bottom = tk.PhotoImage(file=cable_path / "rj45_bottom.png")
+        self.cable_top_sprite = cable_top.subsample(cable_scale, cable_scale)
+        self.cable_bottom_sprite = cable_bottom.subsample(cable_scale, cable_scale)
+        self.cable_sprite_height = self.cable_top_sprite.height()
         self.best = self.load_best_score()
         self.reset()
         self.draw()
@@ -97,15 +107,16 @@ class FlappyBird:
                     self.save_best_score()
         self.pipes = [p for p in self.pipes if float(p["x"]) + PIPE_WIDTH > -5]
 
-        radius = 15
-        if self.bird_y - radius < 0 or self.bird_y + radius > PLAY_HEIGHT:
+        half_height = 25
+        half_width = 22
+        if self.bird_y - half_height < 0 or self.bird_y + half_height > PLAY_HEIGHT:
             self.state = "over"
             return
         for pipe in self.pipes:
             x = float(pipe["x"])
             top = float(pipe["top"])
-            overlaps_x = self.bird_x + radius > x and self.bird_x - radius < x + PIPE_WIDTH
-            outside_gap = self.bird_y - radius < top or self.bird_y + radius > top + PIPE_GAP
+            overlaps_x = self.bird_x + half_width > x and self.bird_x - half_width < x + PIPE_WIDTH
+            outside_gap = self.bird_y - half_height < top or self.bird_y + half_height > top + PIPE_GAP
             if overlaps_x and outside_gap:
                 self.state = "over"
                 return
@@ -127,26 +138,21 @@ class FlappyBird:
     def draw_pipe(self, x: float, top: float) -> None:
         c = self.canvas
         bottom = top + PIPE_GAP
-        green, dark, light = "#58b843", "#398c35", "#8de05a"
-        # Corpo superior e inferior, com bordas que dão volume aos canos.
-        c.create_rectangle(x + 5, 0, x + PIPE_WIDTH - 5, top - 13, fill=green, outline=dark, width=3)
-        c.create_rectangle(x, top - 19, x + PIPE_WIDTH, top, fill=green, outline=dark, width=3)
-        c.create_rectangle(x + 12, 0, x + 20, max(0, top - 21), fill=light, outline="")
-        c.create_rectangle(x + 5, bottom + 19, x + PIPE_WIDTH - 5, PLAY_HEIGHT, fill=green, outline=dark, width=3)
-        c.create_rectangle(x, bottom, x + PIPE_WIDTH, bottom + 19, fill=green, outline=dark, width=3)
-        c.create_rectangle(x + 12, bottom + 21, x + 20, PLAY_HEIGHT, fill=light, outline="")
+        cable, edge, shine = "#1474e9", "#0754ad", "#65adff"
+        cable_x = x + PIPE_WIDTH / 2
+        connector_height = self.cable_sprite_height
+        # O cabo se prolonga por trás do conector fotográfico para parecer contínuo.
+        c.create_rectangle(cable_x - 9, 0, cable_x + 9, top - connector_height + 8, fill=cable, outline=edge, width=2)
+        c.create_line(cable_x - 3, 0, cable_x - 3, top - connector_height + 8, fill=shine, width=2)
+        c.create_image(cable_x, top - connector_height / 2, image=self.cable_top_sprite)
+        c.create_rectangle(cable_x - 9, bottom + connector_height - 8, cable_x + 9, PLAY_HEIGHT, fill=cable, outline=edge, width=2)
+        c.create_line(cable_x - 3, bottom + connector_height - 8, cable_x - 3, PLAY_HEIGHT, fill=shine, width=2)
+        c.create_image(cable_x, bottom + connector_height / 2, image=self.cable_bottom_sprite)
 
     def draw_bird(self) -> None:
         c = self.canvas
         x, y = self.bird_x, self.bird_y
-        tilt = max(-18, min(35, self.bird_vy * 3)) if self.state == "playing" else 0
-        c.create_oval(x - 17, y - 13, x + 17, y + 14, fill="#ffd83d", outline="#d79a22", width=2)
-        c.create_oval(x - 12, y + 1, x + 5, y + 11, fill="#f5b832", outline="#d79a22", width=1)
-        c.create_oval(x + 3, y - 9, x + 12, y + 1, fill="white", outline="#b17b20", width=1)
-        c.create_oval(x + 8, y - 6, x + 11, y - 2, fill="#252525", outline="")
-        c.create_polygon(x + 15, y - 1, x + 28, y + 3, x + 15, y + 7, fill="#f47b35", outline="#b95024")
-        # A small feather follows the bird's vertical motion.
-        c.create_oval(x - 12, y + 1 + tilt * 0.08, x + 1, y + 8 + tilt * 0.08, fill="#fff0a0", outline="#d79a22")
+        c.create_image(x, y, image=self.bird_sprite)
 
     def draw(self) -> None:
         self.canvas.delete("all")

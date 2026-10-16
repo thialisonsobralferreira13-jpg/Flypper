@@ -20,6 +20,12 @@ SKY = (112, 197, 206)
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Flappy Bird")
+bird_image = pygame.image.load("assets/player.png").convert_alpha()
+bird_image = pygame.transform.smoothscale(bird_image, (96, 64))
+cable_top_image = pygame.image.load("assets/rj45.png").convert_alpha()
+cable_bottom_image = pygame.image.load("assets/rj45_bottom.png").convert_alpha()
+cable_top_image = pygame.transform.smoothscale(cable_top_image, (78, 67))
+cable_bottom_image = pygame.transform.smoothscale(cable_bottom_image, (78, 67))
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 28, bold=True)
 small_font = pygame.font.SysFont("arial", 15, bold=True)
@@ -67,31 +73,22 @@ def draw_text(text: str, y: int, color: tuple, selected_font=font) -> None:
 
 
 def draw_bird(y: float, velocity: float) -> None:
-    x = 118
-    pygame.draw.ellipse(screen, (215, 154, 34), (x - 18, y - 13, 36, 28))
-    pygame.draw.ellipse(screen, (255, 216, 61), (x - 16, y - 13, 32, 26))
-    pygame.draw.ellipse(screen, (245, 184, 50), (x - 11, y + 1, 17, 10))
-    pygame.draw.ellipse(screen, (255, 255, 255), (x + 3, y - 9, 10, 10))
-    pygame.draw.circle(screen, (37, 37, 37), (x + 9, int(y - 4)), 2)
-    pygame.draw.polygon(screen, (244, 123, 53), [(x + 14, y - 1), (x + 28, y + 3), (x + 14, y + 7)])
-    wing_y = y + 2 + max(-5, min(6, velocity))
-    pygame.draw.ellipse(screen, (255, 240, 160), (x - 12, wing_y, 14, 8))
+    screen.blit(bird_image, bird_image.get_rect(center=(118, int(y))))
 
 
 def draw_pipe(pipe: dict) -> None:
     x, top = int(pipe["x"]), int(pipe["top"])
     bottom = top + PIPE_GAP
-    green, dark, light = (88, 184, 67), (57, 140, 53), (141, 224, 90)
-    pygame.draw.rect(screen, green, (x + 5, 0, PIPE_WIDTH - 10, top - 13))
-    pygame.draw.rect(screen, dark, (x + 5, 0, PIPE_WIDTH - 10, top - 13), 3)
-    pygame.draw.rect(screen, green, (x, top - 19, PIPE_WIDTH, 19))
-    pygame.draw.rect(screen, dark, (x, top - 19, PIPE_WIDTH, 19), 3)
-    pygame.draw.rect(screen, light, (x + 12, 0, 8, max(0, top - 21)))
-    pygame.draw.rect(screen, green, (x + 5, bottom + 19, PIPE_WIDTH - 10, GROUND - bottom - 19))
-    pygame.draw.rect(screen, dark, (x + 5, bottom + 19, PIPE_WIDTH - 10, GROUND - bottom - 19), 3)
-    pygame.draw.rect(screen, green, (x, bottom, PIPE_WIDTH, 19))
-    pygame.draw.rect(screen, dark, (x, bottom, PIPE_WIDTH, 19), 3)
-    pygame.draw.rect(screen, light, (x + 12, bottom + 21, 8, max(0, GROUND - bottom - 21)))
+    cable, edge, shine = (20, 116, 233), (7, 84, 173), (101, 173, 255)
+    cable_x = x + PIPE_WIDTH // 2
+    connector_height = cable_top_image.get_height()
+    pygame.draw.rect(screen, cable, (cable_x - 9, 0, 18, top - connector_height + 8))
+    pygame.draw.line(screen, shine, (cable_x - 3, 0), (cable_x - 3, top - connector_height + 8), 2)
+    screen.blit(cable_top_image, cable_top_image.get_rect(midbottom=(cable_x, top + 1)))
+    lower_rect = cable_bottom_image.get_rect(midtop=(cable_x, bottom - 1))
+    pygame.draw.rect(screen, cable, (cable_x - 9, bottom + connector_height - 8, 18, GROUND - bottom - connector_height + 8))
+    pygame.draw.line(screen, shine, (cable_x - 3, bottom + connector_height - 8), (cable_x - 3, GROUND), 2)
+    screen.blit(cable_bottom_image, lower_rect)
 
 
 def draw_scene(game: dict, best: int) -> None:
@@ -154,12 +151,13 @@ def update_game(game: dict, best: int) -> int:
                 best = game["score"]
                 save_best(best)
     game["pipes"] = [pipe for pipe in game["pipes"] if pipe["x"] + PIPE_WIDTH > -5]
-    radius = 15
-    if game["bird_y"] - radius < 0 or game["bird_y"] + radius > GROUND:
+    half_height = 25
+    half_width = 22
+    if game["bird_y"] - half_height < 0 or game["bird_y"] + half_height > GROUND:
         game["state"] = "over"
     for pipe in game["pipes"]:
-        overlaps_x = 118 + radius > pipe["x"] and 118 - radius < pipe["x"] + PIPE_WIDTH
-        outside_gap = game["bird_y"] - radius < pipe["top"] or game["bird_y"] + radius > pipe["top"] + PIPE_GAP
+        overlaps_x = 118 + half_width > pipe["x"] and 118 - half_width < pipe["x"] + PIPE_WIDTH
+        outside_gap = game["bird_y"] - half_height < pipe["top"] or game["bird_y"] + half_height > pipe["top"] + PIPE_GAP
         if overlaps_x and outside_gap:
             game["state"] = "over"
             break

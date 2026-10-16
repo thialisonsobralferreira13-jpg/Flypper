@@ -1,6 +1,6 @@
 # Flappy Bird em Python
 
-Jogo feito do zero com Python, Tkinter e SQLite. Não precisa instalar pacotes extras. O recorde fica salvo no arquivo `flappy_bird.db`, criado na pasta do jogo, e continua disponível nas próximas partidas.
+Jogo feito do zero com Python, Tkinter e SQLite. Não precisa instalar pacotes extras. O recorde fica salvo no arquivo `flappy_bird.db`, criado na pasta do jogo, e continua disponível nas próximas partidas. A imagem do personagem está em `assets/player.png`; os obstáculos usam a foto do cabo em `assets/rj45.png` e `assets/rj45_bottom.png`.
 
 ## Como jogar
 
