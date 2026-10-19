@@ -1,6 +1,7 @@
 """Versão web do Flappy Bird. Executada em Python no navegador com Pygbag."""
 
 import asyncio
+import math
 import random
 import sys
 
@@ -15,11 +16,10 @@ PIPE_SPEED = 3.2
 PIPE_WIDTH = 72
 PIPE_GAP = 172
 PIPE_INTERVAL = 92
-SKY = (112, 197, 206)
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Flappy Bird")
+pygame.display.set_caption("Flypper — Flappy Bird")
 bird_image = pygame.image.load("assets/player.png").convert_alpha()
 bird_image = pygame.transform.smoothscale(bird_image, (96, 64))
 cable_top_image = pygame.image.load("assets/rj45.png").convert_alpha()
@@ -30,6 +30,14 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 28, bold=True)
 small_font = pygame.font.SysFont("arial", 15, bold=True)
 tiny_font = pygame.font.SysFont("arial", 13)
+title_font = pygame.font.SysFont("arial", 27, bold=True)
+
+# O céu em gradiente é preparado uma vez para não redesenhar 640 faixas a cada quadro.
+background = pygame.Surface((WIDTH, HEIGHT))
+for y in range(HEIGHT):
+    blend = min(1.0, y / HEIGHT)
+    color = tuple(round(top + (bottom - top) * blend) for top, bottom in zip((91, 185, 207), (207, 233, 218)))
+    pygame.draw.line(background, color, (0, y), (WIDTH, y))
 
 if sys.platform == "emscripten":
     import platform as browser_platform
@@ -73,7 +81,9 @@ def draw_text(text: str, y: int, color: tuple, selected_font=font) -> None:
 
 
 def draw_bird(y: float, velocity: float) -> None:
-    screen.blit(bird_image, bird_image.get_rect(center=(118, int(y))))
+    angle = max(-25, min(25, -velocity * 3))
+    sprite = pygame.transform.rotate(bird_image, angle)
+    screen.blit(sprite, sprite.get_rect(center=(118, int(y))))
 
 
 def draw_pipe(pipe: dict) -> None:
@@ -92,34 +102,51 @@ def draw_pipe(pipe: dict) -> None:
 
 
 def draw_scene(game: dict, best: int) -> None:
-    screen.fill(SKY)
-    for x, y in ((52, 105), (320, 80), (400, 205)):
-        pygame.draw.ellipse(screen, (217, 243, 238), (x, y, 48, 22))
-        pygame.draw.ellipse(screen, (217, 243, 238), (x + 14, y - 11, 28, 27))
+    screen.blit(background, (0, 0))
+    # Colinas distantes e sol criam profundidade sem esconder os obstáculos.
+    pygame.draw.circle(screen, (255, 235, 167), (386, 142), 35)
+    pygame.draw.ellipse(screen, (153, 211, 190), (-105, 300, 390, 190))
+    pygame.draw.ellipse(screen, (125, 197, 177), (170, 320, 430, 175))
+    cloud_shift = int(game["frame"] * 0.35) % (WIDTH + 100) if game["state"] == "playing" else 0
+    for base_x, y in ((52, 105), (320, 80), (400, 205)):
+        x = (base_x - cloud_shift) % (WIDTH + 100) - 50
+        pygame.draw.ellipse(screen, (255, 255, 246), (x, y, 56, 23))
+        pygame.draw.ellipse(screen, (255, 255, 246), (x + 13, y - 13, 32, 31))
+        pygame.draw.ellipse(screen, (255, 255, 246), (x + 31, y - 7, 29, 25))
     for pipe in game["pipes"]:
         draw_pipe(pipe)
-    pygame.draw.rect(screen, (139, 208, 74), (0, GROUND, WIDTH, 13))
-    pygame.draw.rect(screen, (222, 216, 149), (0, GROUND + 13, WIDTH, HEIGHT - GROUND - 13))
+    pygame.draw.rect(screen, (110, 190, 60), (0, GROUND, WIDTH, 15))
+    pygame.draw.line(screen, (184, 232, 113), (0, GROUND + 2), (WIDTH, GROUND + 2), 3)
+    pygame.draw.rect(screen, (226, 216, 151), (0, GROUND + 15, WIDTH, HEIGHT - GROUND - 15))
     offset = (game["frame"] * 3) % 34 if game["state"] == "playing" else 0
     for x in range(-20, WIDTH + 30, 34):
         pygame.draw.line(screen, (196, 185, 108), (x - offset, GROUND + 31), (x + 17 - offset, GROUND + 31), 3)
-    draw_bird(game["bird_y"], game["bird_vy"])
-    score_image = font.render(str(game["score"]), True, (255, 255, 255))
-    screen.blit(score_image, score_image.get_rect(center=(WIDTH // 2, 43)))
-    best_image = small_font.render(f"RECORDE {best}", True, (255, 248, 223))
-    screen.blit(best_image, (WIDTH - best_image.get_width() - 16, 18))
+    bird_y = game["bird_y"]
+    if game["state"] == "ready":
+        bird_y += 5 * math.sin(pygame.time.get_ticks() / 180)
+    draw_bird(bird_y, game["bird_vy"])
+    # Placar com contorno e sombra para manter o contraste em qualquer fundo.
+    pygame.draw.rect(screen, (27, 91, 112), (WIDTH // 2 - 34, 15, 68, 55), border_radius=16)
+    pygame.draw.rect(screen, (255, 250, 225), (WIDTH // 2 - 37, 11, 74, 55), border_radius=16)
+    score_image = title_font.render(str(game["score"]), True, (50, 72, 69))
+    screen.blit(score_image, score_image.get_rect(center=(WIDTH // 2, 38)))
+    best_label = small_font.render(f"RECORDE  {best}", True, (65, 76, 62))
+    best_box = pygame.Rect(WIDTH - best_label.get_width() - 34, 19, best_label.get_width() + 22, 29)
+    pygame.draw.rect(screen, (255, 250, 225), best_box, border_radius=14)
+    screen.blit(best_label, (best_box.x + 11, best_box.y + 6))
 
     if game["state"] in ("ready", "over"):
-        pygame.draw.rect(screen, (255, 248, 223), (38, 230, WIDTH - 76, 135), border_radius=8)
-        pygame.draw.rect(screen, (189, 141, 58), (38, 230, WIDTH - 76, 135), 3, border_radius=8)
+        pygame.draw.rect(screen, (36, 93, 106), (43, 236, WIDTH - 76, 135), border_radius=20)
+        pygame.draw.rect(screen, (255, 249, 224), (38, 230, WIDTH - 76, 135), border_radius=20)
+        pygame.draw.rect(screen, (255, 255, 255), (43, 235, WIDTH - 86, 125), 2, border_radius=17)
         if game["state"] == "ready":
-            draw_text("FLAPPY BIRD", 265, (88, 69, 42))
-            draw_text("ESPAÇO, ↑, toque ou clique para voar", 307, (89, 76, 53), small_font)
-            draw_text("Desvie dos canos e marque pontos!", 338, (119, 105, 79), tiny_font)
+            draw_text("FLAPPY BIRD", 263, (48, 85, 75), title_font)
+            draw_text("TOQUE OU CLIQUE PARA VOAR", 307, (89, 76, 53), small_font)
+            draw_text("Espaço ou ↑ também funcionam", 338, (119, 105, 79), tiny_font)
         else:
-            draw_text("FIM DE JOGO", 263, (88, 69, 42))
-            draw_text(f"Pontuação: {game['score']}    Recorde: {best}", 307, (89, 76, 53), small_font)
-            draw_text("Clique ou pressione ESPAÇO para recomeçar", 338, (119, 105, 79), tiny_font)
+            draw_text("FIM DE JOGO", 263, (48, 85, 75), title_font)
+            draw_text(f"PONTOS  {game['score']}     RECORDE  {best}", 307, (89, 76, 53), small_font)
+            draw_text("Toque, clique ou pressione R para voltar", 338, (119, 105, 79), tiny_font)
     pygame.display.flip()
 
 
